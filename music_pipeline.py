@@ -5,11 +5,11 @@ import librosa
 import spotipy
 import numpy as np
 import pandas as pd
-from pytube import YouTube
 from ytmusicapi import YTMusic
 from spotipy.oauth2 import SpotifyClientCredentials
 from itertools import cycle
 import subprocess
+
 
 class MusicFeatureExtractor:
     def __init__(self, credentials_list, output_csv="song_features_combined.csv"):
@@ -17,7 +17,7 @@ class MusicFeatureExtractor:
         self.cred_cycle = cycle(credentials_list)
         self.sp = self._get_valid_spotify_client()
         self.output_csv = output_csv
-        self.ytmusic = YTMusic()
+        self.ytmusic_client = YTMusic()  # ✅ avoid name conflict
         self.csv_columns = [
             "Spotify ID", "Title", "Artist", "Album", "Release Date", "Popularity",
             "tempo", "loudness", "key", "danceability", "energy", "speechiness", "instrumentalness",
@@ -95,7 +95,7 @@ class MusicFeatureExtractor:
         try:
             query = f"{title} {artist}"
             print(f"🔍 YTMusic search query: {query}")
-            results = self.ytmusic.search(query, filter="songs")
+            results = self.ytmusic_client.search(query, filter="songs")  # ✅ correct object
             if results:
                 for result in results:
                     if "videoId" in result:
@@ -103,8 +103,6 @@ class MusicFeatureExtractor:
                 print("⚠️ No videoId found in results.")
             else:
                 print("⚠️ No results from YTMusic.")
-        except RecursionError as e:
-            print(f"🧠 RecursionError: {e}")
         except Exception as e:
             print(f"❌ YTMusic error: {e}")
         return None
