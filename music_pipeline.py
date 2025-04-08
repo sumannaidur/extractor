@@ -10,7 +10,6 @@ from ytmusicapi import YTMusic
 from spotipy.oauth2 import SpotifyClientCredentials
 from itertools import cycle
 import subprocess
-ytmusic = YTMusic()
 
 class MusicFeatureExtractor:
     def __init__(self, credentials_list, output_csv="song_features_combined.csv"):
@@ -50,7 +49,6 @@ class MusicFeatureExtractor:
                     client_id=creds["client_id"],
                     client_secret=creds["client_secret"]
                 ))
-                # Test credentials
                 client.search(q="test", type="track", limit=1)
                 print("✅ Spotify client authenticated.")
                 return client
@@ -76,7 +74,7 @@ class MusicFeatureExtractor:
                     album = result['albums']['items'][0]
                     album_id = album['id']
                     tracks = self.sp.album_tracks(album_id)['items']
-                    return [ {
+                    return [{
                         "Spotify ID": t['id'],
                         "Title": t['name'],
                         "Artist": ", ".join(a['name'] for a in t['artists']),
@@ -86,7 +84,7 @@ class MusicFeatureExtractor:
                         "movie_title": title,
                         "language": lang,
                         "year": year
-                    } for t in tracks ]
+                    } for t in tracks]
             except Exception as e:
                 print(f"❌ Spotify error: {e}")
                 self._rotate_spotify_client()
@@ -97,7 +95,7 @@ class MusicFeatureExtractor:
         try:
             query = f"{title} {artist}"
             print(f"🔍 YTMusic search query: {query}")
-            results = ytmusic.search(query, filter="songs")
+            results = self.ytmusic.search(query, filter="songs")
             if results:
                 for result in results:
                     if "videoId" in result:
@@ -105,33 +103,33 @@ class MusicFeatureExtractor:
                 print("⚠️ No videoId found in results.")
             else:
                 print("⚠️ No results from YTMusic.")
+        except RecursionError as e:
+            print(f"🧠 RecursionError: {e}")
         except Exception as e:
             print(f"❌ YTMusic error: {e}")
         return None
 
-
     def download_audio(self, youtube_url, out_path):
         try:
             print(f"🎧 Starting download: {youtube_url}")
-            cmd = [                    "yt-dlp",
-                    "-f", "bestaudio[ext=m4a]",
-                    "--extract-audio",
-                    "--audio-format", "wav",
-                    "--output", out_path,
-                    youtube_url
-                ]
+            cmd = [
+                "yt-dlp",
+                "-f", "bestaudio[ext=m4a]",
+                "--extract-audio",
+                "--audio-format", "wav",
+                "--output", out_path,
+                youtube_url
+            ]
             subprocess.run(cmd, check=True)
             if os.path.exists(out_path):
-                    print(f"✅ Downloaded and converted: {out_path}")
-                    return out_path
+                print(f"✅ Downloaded and converted: {out_path}")
+                return out_path
             else:
-                    print(f"❌ File not found after download: {out_path}")
-                    return None
-        except subprocess.CalledProcessError as e:
-                print(f"❌ yt-dlp failed: {e}")
+                print(f"❌ File not found after download: {out_path}")
                 return None
-
-
+        except subprocess.CalledProcessError as e:
+            print(f"❌ yt-dlp failed: {e}")
+            return None
 
     def extract_features(self, file_path):
         try:
@@ -160,7 +158,6 @@ class MusicFeatureExtractor:
     def process_song(self, song):
         if song["Spotify ID"] in self.processed_ids:
             print(f"✅ Skipping (already processed): {song['Title']} by {song['Artist']} ({song['Spotify ID']})")
-
             return
 
         print(f"🎵 Processing: {song['Title']} by {song['Artist']}")
