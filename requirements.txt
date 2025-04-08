@@ -9,3 +9,4 @@ ytmusicapi
 pandas
 gunicorn
 pytube
+gevent
