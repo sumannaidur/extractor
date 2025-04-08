@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Music Pipeline Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        h1 { color: #333; }
+        table { border-collapse: collapse; width: 60%; margin-bottom: 20px; }
+        th, td { border: 1px solid #aaa; padding: 10px; text-align: center; }
+        th { background-color: #eee; }
+        .btn-run { padding: 10px 20px; background-color: green; color: white; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🎵 Music Feature Extraction Dashboard</h1>
+
+    <form method="POST" action="/run">
+        <button class="btn-run">▶️ Run Pipeline</button>
+    </form>
+
+    <h2>📊 Songs Processed</h2>
+    <table>
+        <tr>
+            <th>Language</th>
+            <th>Songs Processed</th>
+        </tr>
+        {% for lang, info in stats.items() %}
+        <tr>
+            <td>{{ lang }}</td>
+            <td>{{ info.total }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    {% if status %}
+    <h2>✅ Last Run Summary</h2>
+    <table>
+        <tr><th>Language</th><th>Processed</th><th>Skipped</th><th>Errors</th></tr>
+        {% for lang, data in status.items() %}
+        <tr>
+            <td>{{ lang }}</td>
+            <td>{{ data.processed }}</td>
+            <td>{{ data.skipped }}</td>
+            <td>{{ data.errors }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+</body>
+</html>
