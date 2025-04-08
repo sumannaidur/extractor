@@ -1,24 +1,22 @@
-# music_pipeline.py
-
 import os
 import csv
 import time
 import librosa
 import spotipy
-from pytube import YouTube 
-import yt_dlp
 import numpy as np
 import pandas as pd
+from pytube import YouTube
 from ytmusicapi import YTMusic
 from spotipy.oauth2 import SpotifyClientCredentials
+from itertools import cycle
 
 ytmusic = YTMusic()
 
 class MusicFeatureExtractor:
     def __init__(self, credentials_list, output_csv="song_features_combined.csv"):
         self.credentials_list = credentials_list
-        self.current_client_index = 0
-        self.sp = self._get_spotify_client()
+        self.cred_cycle = cycle(credentials_list)
+        self.sp = self._get_valid_spotify_client()
         self.output_csv = output_csv
         self.ytmusic = YTMusic()
         self.csv_columns = [
@@ -43,17 +41,26 @@ class MusicFeatureExtractor:
             return set(df["Spotify ID"].dropna())
         return set()
 
-    def _get_spotify_client(self):
-        creds = self.credentials_list[self.current_client_index % len(self.credentials_list)]
-        print(f"🔄 Using Spotify client #{self.current_client_index}")
-        return spotipy.Spotify(auth_manager=SpotifyClientCredentials(
-            client_id=creds["client_id"],
-            client_secret=creds["client_secret"]
-        ))
+    def _get_valid_spotify_client(self):
+        while True:
+            creds = next(self.cred_cycle)
+            try:
+                print(f"🔄 Trying Spotify client: {creds['client_id'][:5]}...")
+                client = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
+                    client_id=creds["client_id"],
+                    client_secret=creds["client_secret"]
+                ))
+                # Test credentials
+                client.search(q="test", type="track", limit=1)
+                print("✅ Spotify client authenticated.")
+                return client
+            except Exception as e:
+                print(f"❌ Failed to authenticate Spotify client: {e}")
+                time.sleep(1)
 
     def _rotate_spotify_client(self):
-        self.current_client_index += 1
-        self.sp = self._get_spotify_client()
+        print("🔁 Rotating Spotify client...")
+        self.sp = self._get_valid_spotify_client()
 
     def get_audio_path(self, filename, lang, year):
         path = os.path.join("audio_files", lang, str(year))
@@ -82,8 +89,8 @@ class MusicFeatureExtractor:
                     } for t in tracks ]
             except Exception as e:
                 print(f"❌ Spotify error: {e}")
-                time.sleep(2 ** attempt)
                 self._rotate_spotify_client()
+                time.sleep(2 ** attempt)
         return []
 
     def get_ytmusic_url(self, title, artist):
@@ -104,7 +111,7 @@ class MusicFeatureExtractor:
             temp_path = out_path.replace(".wav", ".mp4")
             stream.download(output_path=os.path.dirname(temp_path), filename=os.path.basename(temp_path))
 
-            # Convert to WAV using librosa (optional: or use ffmpeg if needed)
+            # Convert to WAV
             y, sr = librosa.load(temp_path, sr=22050)
             librosa.output.write_wav(out_path, y, sr)
             os.remove(temp_path)
@@ -143,7 +150,7 @@ class MusicFeatureExtractor:
             return
 
         print(f"🎵 Processing: {song['Title']} by {song['Artist']}")
-        url = self.get_youtube_music_url(song["Title"], song["Artist"])
+        url = self.get_ytmusic_url(song["Title"], song["Artist"])
         if not url:
             return
 
