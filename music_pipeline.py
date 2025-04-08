@@ -5,11 +5,14 @@ import csv
 import time
 import librosa
 import spotipy
+from pytube import YouTube 
 import yt_dlp
 import numpy as np
 import pandas as pd
 from ytmusicapi import YTMusic
 from spotipy.oauth2 import SpotifyClientCredentials
+
+ytmusic = YTMusic()
 
 class MusicFeatureExtractor:
     def __init__(self, credentials_list, output_csv="song_features_combined.csv"):
@@ -83,37 +86,32 @@ class MusicFeatureExtractor:
                 self._rotate_spotify_client()
         return []
 
-    def get_youtube_music_url(self, title, artist):
+    def get_ytmusic_url(self, title, artist):
         try:
-            results = self.ytmusic.search(f"{title} {artist}", filter="songs", limit=1)
+            query = f"{title} {artist}"
+            results = ytmusic.search(query, filter="songs")
             if results:
                 video_id = results[0].get("videoId")
-                if video_id:
-                    return f"https://www.youtube.com/watch?v={video_id}"
+                return f"https://www.youtube.com/watch?v={video_id}" if video_id else None
         except Exception as e:
-            print(f"❌ YTMusic search failed: {e}")
+            print(f"❌ YTMusic error: {e}")
         return None
 
     def download_audio(self, youtube_url, out_path):
-        ydl_opts = {
-            "format": "bestaudio[ext=m4a]/bestaudio/best",
-            "outtmpl": out_path.replace(".wav", ".%(ext)s"),
-            "postprocessors": [{
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "wav",
-                "preferredquality": "192"
-            }],
-            "quiet": True,
-            "noplaylist": True,
-            "geo_bypass": True
-        }
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([youtube_url])
+            yt = YouTube(youtube_url)
+            stream = yt.streams.filter(only_audio=True, file_extension='mp4').first()
+            temp_path = out_path.replace(".wav", ".mp4")
+            stream.download(output_path=os.path.dirname(temp_path), filename=os.path.basename(temp_path))
+
+            # Convert to WAV using librosa (optional: or use ffmpeg if needed)
+            y, sr = librosa.load(temp_path, sr=22050)
+            librosa.output.write_wav(out_path, y, sr)
+            os.remove(temp_path)
+            return out_path
         except Exception as e:
-            print(f"❌ yt-dlp download error: {e}")
+            print(f"❌ YouTube download error: {e}")
             return None
-        return out_path
 
     def extract_features(self, file_path):
         try:
