@@ -8,9 +8,8 @@ import spotipy
 import yt_dlp
 import numpy as np
 import pandas as pd
-from datetime import datetime
+from ytmusicapi import YTMusic
 from spotipy.oauth2 import SpotifyClientCredentials
-from youtubesearchpython import VideosSearch
 
 class MusicFeatureExtractor:
     def __init__(self, credentials_list, output_csv="song_features_combined.csv"):
@@ -18,6 +17,7 @@ class MusicFeatureExtractor:
         self.current_client_index = 0
         self.sp = self._get_spotify_client()
         self.output_csv = output_csv
+        self.ytmusic = YTMusic()
         self.csv_columns = [
             "Spotify ID", "Title", "Artist", "Album", "Release Date", "Popularity",
             "tempo", "loudness", "key", "danceability", "energy", "speechiness", "instrumentalness",
@@ -66,7 +66,7 @@ class MusicFeatureExtractor:
                     album = result['albums']['items'][0]
                     album_id = album['id']
                     tracks = self.sp.album_tracks(album_id)['items']
-                    return [{
+                    return [ {
                         "Spotify ID": t['id'],
                         "Title": t['name'],
                         "Artist": ", ".join(a['name'] for a in t['artists']),
@@ -76,31 +76,22 @@ class MusicFeatureExtractor:
                         "movie_title": title,
                         "language": lang,
                         "year": year
-                    } for t in tracks]
+                    } for t in tracks ]
             except Exception as e:
                 print(f"❌ Spotify error: {e}")
                 time.sleep(2 ** attempt)
                 self._rotate_spotify_client()
         return []
 
-    def get_youtube_url(self, title, artist):
-        queries = [
-            f"{title} {artist} YouTube Music",
-            f"{title} {artist} official audio",
-            f"{title} {artist} official song",
-            f"{title} {artist} lyrics"
-        ]
-        for query in queries:
-            try:
-                result = VideosSearch(query, limit=3).result()
-                for video in result.get("result", []):
-                    video_title = video["title"].lower()
-                    if all(term in video_title for term in [title.lower(), artist.lower()]):
-                        return video["link"]
-                if result["result"]:
-                    return result["result"][0]["link"]
-            except Exception as e:
-                print(f"❌ YouTube search failed for query '{query}': {e}")
+    def get_youtube_music_url(self, title, artist):
+        try:
+            results = self.ytmusic.search(f"{title} {artist}", filter="songs", limit=1)
+            if results:
+                video_id = results[0].get("videoId")
+                if video_id:
+                    return f"https://www.youtube.com/watch?v={video_id}"
+        except Exception as e:
+            print(f"❌ YTMusic search failed: {e}")
         return None
 
     def download_audio(self, youtube_url, out_path):
@@ -154,7 +145,7 @@ class MusicFeatureExtractor:
             return
 
         print(f"🎵 Processing: {song['Title']} by {song['Artist']}")
-        url = self.get_youtube_url(song["Title"], song["Artist"])
+        url = self.get_youtube_music_url(song["Title"], song["Artist"])
         if not url:
             return
 

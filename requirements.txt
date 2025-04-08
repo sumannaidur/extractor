@@ -3,6 +3,6 @@ numpy
 librosa
 spotipy
 yt-dlp
-youtubesearchpython
 ffmpeg-python
 requests
+ytmusicapi
