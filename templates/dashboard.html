@@ -13,7 +13,30 @@
 </head>
 <body>
     <h1>🎵 Music Feature Extraction Dashboard</h1>
-
+    <h2>🚀 Live Logs</h2>
+    <div id="logBox" style="white-space:pre-wrap; border:1px solid #ccc; padding:10px; height:300px; overflow:auto;"></div>
+    
+    <script>
+        document.querySelector(".btn-run").addEventListener("click", function(e) {
+            e.preventDefault();
+            const logBox = document.getElementById("logBox");
+            logBox.innerHTML = "⏳ Starting pipeline...\n";
+            fetch("/run", { method: "POST" }).then(response => {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                function read() {
+                    reader.read().then(({ done, value }) => {
+                        if (done) return;
+                        logBox.innerHTML += decoder.decode(value);
+                        logBox.scrollTop = logBox.scrollHeight;
+                        read();
+                    });
+                }
+                read();
+            });
+        });
+    </script>
+    
     <form method="POST" action="/run">
         <button class="btn-run">▶️ Run Pipeline</button>
     </form>

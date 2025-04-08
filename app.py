@@ -2,7 +2,8 @@ import os
 import pandas as pd
 from flask import Flask, render_template, request
 from music_pipeline import MusicFeatureExtractor
-
+from flask import Response
+import time
 app = Flask(__name__)
 
 SPOTIFY_CREDENTIALS = [
@@ -77,8 +78,48 @@ def dashboard():
 
 @app.route('/run', methods=["POST"])
 def run():
-    status = run_music_pipeline()
-    return render_template("dashboard.html", status=status)
+    def generate():
+        yield "<pre>"
+        for lang, path in movie_files.items():
+            yield f"\n\n📁 Processing language: {lang}\n"
+            status = {"processed": 0, "skipped": 0, "errors": 0}
+            if not os.path.exists(path):
+                yield f"⚠️ File not found: {path}\n"
+                continue
+
+            df = pd.read_csv(path)
+            if not {'Title', 'Release Date', 'Language'}.issubset(df.columns):
+                yield f"⚠️ Invalid format in: {path}\n"
+                continue
+
+            for _, row in df.iterrows():
+                title = row.get("Title")
+                release = row.get("Release Date")
+                try:
+                    year = pd.to_datetime(release, errors="coerce", dayfirst=True).year
+                    if pd.isna(year) or year < 1900:
+                        continue
+                except:
+                    status["errors"] += 1
+                    continue
+
+                try:
+                    tracks = extractor.fetch_album_tracks(title, lang, year)
+                    for track in tracks:
+                        if track["Spotify ID"] in extractor.processed_ids:
+                            status["skipped"] += 1
+                            continue
+                        extractor.process_song(track)
+                        status["processed"] += 1
+                        yield f"✅ {track['Title']} processed.\n"
+                except Exception as e:
+                    yield f"❌ Error processing {title}: {e}\n"
+                    status["errors"] += 1
+
+            yield f"\n✅ Finished {lang}: {status}\n"
+        yield "</pre>"
+
+    return Response(generate(), mimetype='text/html')
 
 import os
 
