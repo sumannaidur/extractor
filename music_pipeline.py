@@ -10,6 +10,11 @@ from spotipy.oauth2 import SpotifyClientCredentials
 from itertools import cycle
 import subprocess
 
+if os.path.exists("yt_cookies.txt"):
+    print("🍪 Using yt_cookies.txt for yt-dlp.")
+else:
+    print("⚠️ yt_cookies.txt not found — yt-dlp might fail on Render.")
+
 
 class MusicFeatureExtractor:
     def __init__(self, credentials_list, output_csv="song_features_combined.csv"):
@@ -116,6 +121,7 @@ class MusicFeatureExtractor:
                 "--extract-audio",
                 "--audio-format", "wav",
                 "--output", out_path,
+                "--cookies", "yt_cookies.txt",  # 👈 add this line
                 youtube_url
             ]
             subprocess.run(cmd, check=True)
@@ -128,6 +134,7 @@ class MusicFeatureExtractor:
         except subprocess.CalledProcessError as e:
             print(f"❌ yt-dlp failed: {e}")
             return None
+
 
     def extract_features(self, file_path):
         try:
