@@ -7,3 +7,4 @@ ffmpeg-python
 requests
 ytmusicapi
 pandas
+gunicorn
