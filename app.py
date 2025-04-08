@@ -19,7 +19,11 @@ movie_files = {
     "tamil": "movies_by_language/tamil_movies.csv",
     "hindi": "movies_by_language/hindi_movies.csv"
 }
-
+if os.path.exists("yt_cookies.txt"):
+    print("🍪 Using yt_cookies.txt for yt-dlp.")
+else:
+    print("⚠️ yt_cookies.txt not found — yt-dlp might fail on Render.")
+    
 def run_music_pipeline():
     status = {}
     for lang, path in movie_files.items():

@@ -10,10 +10,7 @@ from spotipy.oauth2 import SpotifyClientCredentials
 from itertools import cycle
 import subprocess
 
-if os.path.exists("yt_cookies.txt"):
-    print("🍪 Using yt_cookies.txt for yt-dlp.")
-else:
-    print("⚠️ yt_cookies.txt not found — yt-dlp might fail on Render.")
+
 
 
 class MusicFeatureExtractor:
