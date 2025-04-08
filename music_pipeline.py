@@ -9,7 +9,7 @@ from pytube import YouTube
 from ytmusicapi import YTMusic
 from spotipy.oauth2 import SpotifyClientCredentials
 from itertools import cycle
-
+import subprocess
 ytmusic = YTMusic()
 
 class MusicFeatureExtractor:
@@ -96,29 +96,42 @@ class MusicFeatureExtractor:
     def get_ytmusic_url(self, title, artist):
         try:
             query = f"{title} {artist}"
+            print(f"🔍 YTMusic search query: {query}")
             results = ytmusic.search(query, filter="songs")
             if results:
-                video_id = results[0].get("videoId")
-                return f"https://www.youtube.com/watch?v={video_id}" if video_id else None
+                for result in results:
+                    if "videoId" in result:
+                        return f"https://www.youtube.com/watch?v={result['videoId']}"
+                print("⚠️ No videoId found in results.")
+            else:
+                print("⚠️ No results from YTMusic.")
         except Exception as e:
             print(f"❌ YTMusic error: {e}")
         return None
 
+
     def download_audio(self, youtube_url, out_path):
         try:
-            yt = YouTube(youtube_url)
-            stream = yt.streams.filter(only_audio=True, file_extension='mp4').first()
-            temp_path = out_path.replace(".wav", ".mp4")
-            stream.download(output_path=os.path.dirname(temp_path), filename=os.path.basename(temp_path))
+            print(f"🎧 Starting download: {youtube_url}")
+            cmd = [                    "yt-dlp",
+                    "-f", "bestaudio[ext=m4a]",
+                    "--extract-audio",
+                    "--audio-format", "wav",
+                    "--output", out_path,
+                    youtube_url
+                ]
+            subprocess.run(cmd, check=True)
+            if os.path.exists(out_path):
+                    print(f"✅ Downloaded and converted: {out_path}")
+                    return out_path
+            else:
+                    print(f"❌ File not found after download: {out_path}")
+                    return None
+        except subprocess.CalledProcessError as e:
+                print(f"❌ yt-dlp failed: {e}")
+                return None
 
-            # Convert to WAV
-            y, sr = librosa.load(temp_path, sr=22050)
-            librosa.output.write_wav(out_path, y, sr)
-            os.remove(temp_path)
-            return out_path
-        except Exception as e:
-            print(f"❌ YouTube download error: {e}")
-            return None
+
 
     def extract_features(self, file_path):
         try:
@@ -146,12 +159,14 @@ class MusicFeatureExtractor:
 
     def process_song(self, song):
         if song["Spotify ID"] in self.processed_ids:
-            print(f"✅ Skipping: {song['Title']}")
+            print(f"✅ Skipping (already processed): {song['Title']} by {song['Artist']} ({song['Spotify ID']})")
+
             return
 
         print(f"🎵 Processing: {song['Title']} by {song['Artist']}")
         url = self.get_ytmusic_url(song["Title"], song["Artist"])
         if not url:
+            print(f"⚠️ No YTMusic URL found for {song['Title']} by {song['Artist']}")
             return
 
         lang = song["language"]
@@ -159,22 +174,26 @@ class MusicFeatureExtractor:
         audio_path = self.get_audio_path(song["Spotify ID"], lang, year)
         audio_path = self.download_audio(url, audio_path)
         if not audio_path:
+            print(f"⚠️ Audio download failed for: {song['Title']}")
             return
 
         features = self.extract_features(audio_path)
 
         if os.path.exists(audio_path):
             os.remove(audio_path)
+            print(f"🗑️ Removed audio file: {audio_path}")
 
         if features:
             combined = {**song, **features}
             with open(self.output_csv, "a", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(f, fieldnames=self.csv_columns)
                 writer.writerow(combined)
+                print(f"📁 Saved to main CSV: {self.output_csv}")
 
             out_dir = os.path.join("songs_by_year", lang)
             os.makedirs(out_dir, exist_ok=True)
             out_file = os.path.join(out_dir, f"{year}.csv")
             pd.DataFrame([combined]).to_csv(out_file, mode='a', header=not os.path.exists(out_file), index=False)
+            print(f"📂 Saved to year-wise CSV: {out_file}")
 
             self.processed_ids.add(song["Spotify ID"])
